@@ -2,8 +2,8 @@ name: Monthly Login Screenshot
 
 on:
   schedule:
-    - cron: "0 0 1 * *"  # 每月1号北京时间8:00运行（UTC+8）
-  workflow_dispatch:     # 允许手动触发
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
 
 jobs:
   screenshot:
@@ -16,8 +16,10 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Puppeteer
-        run: npm install puppeteer nodemailer
+      - name: Init & Install
+        run: |
+          npm init -y
+          npm install puppeteer nodemailer --no-audit --progress=false
 
       - name: Take screenshot
         env:
@@ -26,43 +28,76 @@ jobs:
           LOGIN_USER: ${{ secrets.LOGIN_USERNAME }}
           LOGIN_PASS: ${{ secrets.LOGIN_PASSWORD }}
         run: |
-          node <<EOF
+          node <<'EOF'
           const puppeteer = require('puppeteer');
           const nodemailer = require('nodemailer');
           const fs = require('fs');
 
           (async () => {
-            // 1. 打开浏览器登录并截图
-            const browser = await puppeteer.launch();
-            const page = await browser.newPage();
-            await page.goto('https://kqapp.centaline.com.cn/onecard/m/home');  
-            await page.type('#username', process.env.LOGIN_USER);
-            await page.type('#password', process.env.LOGIN_PASS);
-            await page.click('#login-button');
-            await page.waitForTimeout(2000);  // 等待2秒
-            await page.screenshot({ path: 'login.png' });
-            await browser.close();
+            try {
+              console.log('Launching browser...');
+              const browser = await puppeteer.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+              });
 
-            // 2. 发送邮件
-            let transporter = nodemailer.createTransport({
-              host: 'smtp.qq.com',
-              port: 465,
-              secure: true,
-              auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-              }
-            });
+              const page = await browser.newPage();
+              await page.setViewport({ width: 1280, height: 900 });
+              // 可选：设置 User-Agent，降低被识别风险
+              await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117 Safari/537.36');
 
-            await transporter.sendMail({
-              from: '自动截图机器人 <${process.env.SMTP_USER}>',
-              to: process.env.SMTP_USER,
-              subject: '【GitHub自动化】登录页面截图',
-              text: '本月登录截图已生成，请查收附件',
-              attachments: [{
-                filename: 'login.png',
-                path: 'login.png'
-              }]
-            });
+              console.log('Goto page...');
+              await page.goto('https://kqapp.centaline.com.cn/onecard/m/home', { waitUntil: 'networkidle2', timeout: 60000 });
+
+              // 等待并填充账号密码（请确认选择器是否正确）
+              console.log('Waiting for username field...');
+              await page.waitForSelector('#username', { timeout: 10000 });
+              await page.type('#username', process.env.LOGIN_USER || '', { delay: 50 });
+
+              console.log('Waiting for password field...');
+              await page.waitForSelector('#password', { timeout: 10000 });
+              await page.type('#password', process.env.LOGIN_PASS || '', { delay: 50 });
+
+              console.log('Click login...');
+              await Promise.all([
+                page.click('#login-button'),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => { console.log('Navigation did not happen - maybe SPA'); })
+              ]);
+
+              // 可在此处等待登录后某个已登录元素出现：
+              // await page.waitForSelector('.some-logged-in-element', { timeout: 10000 });
+
+              const shotPath = 'login.png';
+              console.log('Taking screenshot to', shotPath);
+              await page.screenshot({ path: shotPath, fullPage: true });
+
+              await browser.close();
+
+              // 发送邮件
+              console.log('Preparing transporter...');
+              let transporter = nodemailer.createTransport({
+                host: 'smtp.qq.com',
+                port: 465,
+                secure: true,
+                auth: {
+                  user: process.env.SMTP_USER,
+                  pass: process.env.SMTP_PASS
+                }
+              });
+
+              console.log('Sending mail...');
+              await transporter.sendMail({
+                from: `自动截图机器人 <${process.env.SMTP_USER}>`,
+                to: process.env.SMTP_USER,
+                subject: '【GitHub自动化】登录页面截图',
+                text: '本月登录截图已生成，请查收附件',
+                attachments: [{ filename: 'login.png', path: 'login.png' }]
+              });
+
+              console.log('Done.');
+            } catch (err) {
+              console.error('Script failed:', err);
+              process.exit(1);
+            }
           })();
           EOF
