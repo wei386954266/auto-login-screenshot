@@ -35,7 +35,7 @@ jobs:
             // 1. 打开浏览器登录并截图
             const browser = await puppeteer.launch();
             const page = await browser.newPage();
-            await page.goto('http://localhost:3000');  // 改成你的页面在线URL
+            await page.goto('https://kqapp.centaline.com.cn/onecard/m/home');  
             await page.type('#username', process.env.LOGIN_USER);
             await page.type('#password', process.env.LOGIN_PASS);
             await page.click('#login-button');
