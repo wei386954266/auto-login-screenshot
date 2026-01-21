@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动登录系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+    <div id="status">系统初始化中...</div>
+    <div id="result"></div>
+    
+    <!-- 添加按钮 -->
+    <button id="loginButton">执行自动登录</button>
+     <div>
+        <button id="fullscreenButton"  >全屏显示</button>
+    </div>
+    <!-- 使用iframe打开目标页面 -->
+    <iframe id="targetPage" src="https://kqapp.centaline.com.cn/onecard/m/home" width="100%" height="1000px" title="iframeTitle"></iframe>
+    
+    
+    <script>
+      
+        // 自动登录功能
+        function autoLogin() {
+            // 更新状态
+            document.getElementById("status").innerText = "正在执行自动登录...";
+            
+            // 登录信息
+            const username = "";
+            const password = "";
+            
+            // 获取iframe元素
+            const iframe = document.getElementById("targetPage");
+            
+            // 使用postMessage向iframe发送登录信息
+            // 注意：这需要目标网站配合接收消息
+            setTimeout(() => {
+                iframe.contentWindow.postMessage({
+                    type: "AUTO_LOGIN",
+                    username: username,
+                    password: password
+                }, "https://kqapp.centaline.com.cn");
+                
+                document.getElementById("status").innerText = "已发送登录信息到目标页面";
+                document.getElementById("result").innerHTML = `
+                    <p>登录账号: ${username}</p>
+                `;
+            }, 3000);
+        }
+        
+        // 监听来自iframe的消息
+        window.addEventListener("message", function(event) {
+            // 验证消息来源
+            if (event.origin !== "https://kqapp.centaline.com.cn") {
+                return;
+            }
+            
+            // 处理来自目标页面的消息
+            if (event.data.type === "LOGIN_SUCCESS") {
+                document.getElementById("status").innerText = "登录成功";
+                document.getElementById("result").innerHTML += `
+                    <p>登录成功时间: ${new Date().toLocaleString()}</p>
+                `;
+            } else if (event.data.type === "LOGIN_FAILED") {
+                document.getElementById("status").innerText = "登录失败";
+                document.getElementById("result").innerHTML += `
+                    <p>登录失败时间: ${new Date().toLocaleString()}</p>
+                    <p>失败原因: ${event.data.message}</p>
+                `;
+            }
+        });
+        
+        // 为按钮添加点击事件监听器
+        document.getElementById("loginButton").addEventListener("click", function() {
+            autoLogin();
+        });
+        
+        // 为全屏按钮添加点击事件监听器
+        document.getElementById("fullscreenButton").addEventListener("click", function() {
+            const iframe = document.getElementById("targetPage");
+            
+            // 请求全屏显示
+            if (iframe.requestFullscreen) {
+                iframe.requestFullscreen();
+            } else if (iframe.webkitRequestFullscreen) { // Safari
+                iframe.webkitRequestFullscreen();
+            } else if (iframe.msRequestFullscreen) { // IE11
+                iframe.msRequestFullscreen();
+            }
+        });
+        
+        // 页面加载完成后执行
+        window.onload = function() {
+            // 直接执行自动登录
+            autoLogin();
+        };
+    </script>
+</body>
+</html>
