@@ -166,3 +166,15 @@ MIT License
 - 基本的自动登录功能
 - 简单的截图功能
 - 邮件发送功能
+
+
+
+Run node <<'EOF'
+Launching browser...
+Goto page: https://kqapp.centaline.com.cn/onecard/m/home
+Script failed with error: TypeError: page.waitForTimeout is not a function
+    at [stdin]:38:16
+Error stack: TypeError: page.waitForTimeout is not a function
+    at [stdin]:38:16
+Error screenshot saved: error_screenshot.png
+Error email sent successfully!
