@@ -205,7 +205,14 @@ jobs:
                 console.log('Navigation did not happen - maybe SPA');
               });
 
-              await context.click(loginButton);
+              // 检查loginButton是元素句柄还是字符串选择器
+              if (typeof loginButton === 'string') {
+                // 如果是字符串选择器，使用context.click()
+                await context.click(loginButton);
+              } else {
+                // 如果是元素句柄，直接调用click()方法
+                await loginButton.click();
+              }
               await navigationPromise;
 
               // 等待页面加载完成
