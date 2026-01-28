@@ -241,13 +241,31 @@ jobs:
                 console.log('Warning: Could not confirm login success, but proceeding with screenshot');
               }
 
+              // 增加等待时间确保字体和内容完全渲染
+              console.log('Waiting for fonts and content to fully render...');
+              await waitForTimeout(page, 5000); // 增加渲染等待时间
+              
+              // 尝试强制重绘页面
+              await page.evaluate(() => {
+                const body = document.body;
+                const display = body.style.display;
+                body.style.display = 'none';
+                // 强制重排
+                void body.offsetHeight;
+                body.style.display = display;
+              });
+              
               // 截图
               const shotPath = 'login_screenshot.png';
               console.log('Taking screenshot to', shotPath);
               await page.screenshot({ 
                 path: shotPath, 
-                fullPage: true
+                fullPage: true,
+                type: 'png',
+                captureBeyondViewport: true
               });
+              
+              console.log('Screenshot taken successfully with enhanced rendering');
 
               // 发送邮件
               console.log('Preparing email transporter...');
