@@ -3,49 +3,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自动登录系统</title>
+    <title>GitHub自动登录截图工具 - 本地测试</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background-color: #24292e;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .config-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .config-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #24292e;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #0366d6;
+            box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #0366d6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0256b3;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        .status-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #24292e;
+        }
+        
+        #status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        #result {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        
+        .iframe-section {
+            padding: 20px;
+        }
+        
+        .iframe-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #24292e;
+        }
+        
+        #targetPage {
+            width: 100%;
+            height: 800px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .info-box h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #1976D2;
+        }
+        
+        .info-box p {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .button-group {
+                flex-direction: column;
+            }
+            
+            #targetPage {
+                height: 600px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="status">系统初始化中...</div>
-    <div id="result"></div>
-    
-    <!-- 添加按钮 -->
-    <button id="loginButton">执行自动登录</button>
-     <div>
-        <button id="fullscreenButton"  >全屏显示</button>
+    <div class="container">
+        <div class="header">
+            <h1>GitHub自动登录截图工具 - 本地测试</h1>
+            <p>用于测试自动登录功能的本地界面</p>
+        </div>
+        
+        <div class="config-section">
+            <h2>登录配置</h2>
+            <div class="info-box">
+                <h3>使用说明</h3>
+                <p>1. 在此处输入登录信息（仅本地测试用）</p>
+                <p>2. 实际GitHub Actions运行时使用环境变量配置</p>
+                <p>3. 目标网站：https://kqapp.centaline.com.cn/onecard/m/home</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="testUsername">测试用户名</label>
+                <input type="text" id="testUsername" placeholder="输入测试用户名">
+            </div>
+            
+            <div class="form-group">
+                <label for="testPassword">测试密码</label>
+                <input type="password" id="testPassword" placeholder="输入测试密码">
+            </div>
+            
+            <div class="button-group">
+                <button id="loginButton" class="btn-primary">执行自动登录</button>
+                <button id="resetButton" class="btn-secondary">重置表单</button>
+                <button id="fullscreenButton" class="btn-secondary">全屏显示</button>
+            </div>
+        </div>
+        
+        <div class="status-section">
+            <h2>运行状态</h2>
+            <div id="status" class="status-info">系统初始化中...</div>
+            <div id="result">请点击"执行自动登录"按钮开始测试</div>
+        </div>
+        
+        <div class="iframe-section">
+            <h2>目标页面</h2>
+            <!-- 使用iframe打开目标页面 -->
+            <iframe id="targetPage" src="https://kqapp.centaline.com.cn/onecard/m/home" title="目标登录页面"></iframe>
+        </div>
     </div>
-    <!-- 使用iframe打开目标页面 -->
-    <iframe id="targetPage" src="https://kqapp.centaline.com.cn/onecard/m/home" width="100%" height="1000px" title="iframeTitle"></iframe>
-    
     
     <script>
-      
+        // 页面加载完成后执行
+        window.onload = function() {
+            updateStatus('系统已准备就绪', 'info');
+            updateResult('请在上方输入测试账号密码，然后点击"执行自动登录"按钮开始测试');
+        };
+        
+        // 更新状态显示
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.innerText = message;
+            
+            // 移除所有状态类
+            statusElement.className = '';
+            
+            // 添加新的状态类
+            if (type === 'success') {
+                statusElement.classList.add('status-success');
+            } else if (type === 'error') {
+                statusElement.classList.add('status-error');
+            } else {
+                statusElement.classList.add('status-info');
+            }
+        }
+        
+        // 更新结果显示
+        function updateResult(message) {
+            const resultElement = document.getElementById('result');
+            const timestamp = new Date().toLocaleString('zh-CN');
+            resultElement.innerHTML += `\n[${timestamp}] ${message}`;
+            resultElement.scrollTop = resultElement.scrollHeight;
+        }
+        
+        // 重置表单
+        function resetForm() {
+            document.getElementById('testUsername').value = '';
+            document.getElementById('testPassword').value = '';
+            updateStatus('表单已重置', 'info');
+            updateResult('表单已重置，请重新输入登录信息');
+        }
+        
         // 自动登录功能
         function autoLogin() {
-            // 更新状态
-            document.getElementById("status").innerText = "正在执行自动登录...";
+            // 获取输入的登录信息
+            const username = document.getElementById('testUsername').value.trim();
+            const password = document.getElementById('testPassword').value.trim();
             
-            // 登录信息
-            const username = "";
-            const password = "";
+            // 验证输入
+            if (!username || !password) {
+                updateStatus('请输入完整的登录信息', 'error');
+                updateResult('错误：请输入用户名和密码');
+                return;
+            }
+            
+            // 更新状态
+            updateStatus('正在执行自动登录...', 'info');
+            updateResult(`开始自动登录，目标网站：https://kqapp.centaline.com.cn/onecard/m/home`);
             
             // 获取iframe元素
-            const iframe = document.getElementById("targetPage");
+            const iframe = document.getElementById('targetPage');
+            
+            // 等待iframe加载完成
+            if (iframe.readyState !== 'complete') {
+                updateResult('等待目标页面加载完成...');
+            }
             
             // 使用postMessage向iframe发送登录信息
-            // 注意：这需要目标网站配合接收消息
+            // 注意：这需要目标网站配合接收消息，否则可能无法正常工作
             setTimeout(() => {
-                iframe.contentWindow.postMessage({
-                    type: "AUTO_LOGIN",
-                    username: username,
-                    password: password
-                }, "https://kqapp.centaline.com.cn");
-                
-                document.getElementById("status").innerText = "已发送登录信息到目标页面";
-                document.getElementById("result").innerHTML = `
-                    <p>登录账号: ${username}</p>
-                `;
+                try {
+                    iframe.contentWindow.postMessage({
+                        type: "AUTO_LOGIN",
+                        username: username,
+                        password: password
+                    }, "https://kqapp.centaline.com.cn");
+                    
+                    updateStatus('已尝试发送登录信息到目标页面', 'info');
+                    updateResult(`已发送登录信息：用户名=${username}`);
+                    updateResult('注意：如果没有登录成功，请检查：');
+                    updateResult('1. 目标网站是否支持postMessage通信');
+                    updateResult('2. 浏览器控制台是否有错误信息');
+                    updateResult('3. 尝试手动登录确认账号密码是否正确');
+                } catch (error) {
+                    updateStatus('发送登录信息失败', 'error');
+                    updateResult(`错误：${error.message}`);
+                    updateResult('可能原因：跨域限制或目标页面未加载完成');
+                }
             }, 3000);
         }
         
@@ -53,21 +348,22 @@
         window.addEventListener("message", function(event) {
             // 验证消息来源
             if (event.origin !== "https://kqapp.centaline.com.cn") {
+                updateResult(`收到未知来源消息：${event.origin}`);
                 return;
             }
             
             // 处理来自目标页面的消息
             if (event.data.type === "LOGIN_SUCCESS") {
-                document.getElementById("status").innerText = "登录成功";
-                document.getElementById("result").innerHTML += `
-                    <p>登录成功时间: ${new Date().toLocaleString()}</p>
-                `;
+                updateStatus("登录成功", 'success');
+                updateResult("登录成功！");
+                updateResult(`登录成功时间: ${new Date().toLocaleString()}`);
             } else if (event.data.type === "LOGIN_FAILED") {
-                document.getElementById("status").innerText = "登录失败";
-                document.getElementById("result").innerHTML += `
-                    <p>登录失败时间: ${new Date().toLocaleString()}</p>
-                    <p>失败原因: ${event.data.message}</p>
-                `;
+                updateStatus("登录失败", 'error');
+                updateResult("登录失败！");
+                updateResult(`登录失败时间: ${new Date().toLocaleString()}`);
+                updateResult(`失败原因: ${event.data.message}`);
+            } else {
+                updateResult(`收到其他消息: ${JSON.stringify(event.data)}`);
             }
         });
         
@@ -76,25 +372,36 @@
             autoLogin();
         });
         
+        document.getElementById("resetButton").addEventListener("click", function() {
+            resetForm();
+        });
+        
         // 为全屏按钮添加点击事件监听器
         document.getElementById("fullscreenButton").addEventListener("click", function() {
             const iframe = document.getElementById("targetPage");
             
             // 请求全屏显示
-            if (iframe.requestFullscreen) {
-                iframe.requestFullscreen();
-            } else if (iframe.webkitRequestFullscreen) { // Safari
-                iframe.webkitRequestFullscreen();
-            } else if (iframe.msRequestFullscreen) { // IE11
-                iframe.msRequestFullscreen();
+            try {
+                if (iframe.requestFullscreen) {
+                    iframe.requestFullscreen();
+                } else if (iframe.webkitRequestFullscreen) { // Safari
+                    iframe.webkitRequestFullscreen();
+                } else if (iframe.msRequestFullscreen) { // IE11
+                    iframe.msRequestFullscreen();
+                }
+                updateResult('已请求全屏显示');
+            } catch (error) {
+                updateStatus('全屏请求失败', 'error');
+                updateResult(`错误：${error.message}`);
             }
         });
         
-        // 页面加载完成后执行
-        window.onload = function() {
-            // 直接执行自动登录
-            autoLogin();
-        };
+        // 监听键盘事件（Enter键提交表单）
+        document.getElementById('testPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                autoLogin();
+            }
+        });
     </script>
 </body>
 </html>

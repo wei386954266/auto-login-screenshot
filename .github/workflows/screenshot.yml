@@ -2,7 +2,7 @@ name: Monthly Login Screenshot
 
 on:
   schedule:
-    - cron: "0 0 1 * *"
+    - cron: "0 10 1 * *"
   workflow_dispatch:
 
 jobs:
@@ -27,6 +27,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASSWORD }}
           LOGIN_USER: ${{ secrets.LOGIN_USERNAME }}
           LOGIN_PASS: ${{ secrets.LOGIN_PASSWORD }}
+          TARGET_URL: 'https://kqapp.centaline.com.cn/onecard/m/home'
         run: |
           node <<'EOF'
           const puppeteer = require('puppeteer');
@@ -34,70 +35,291 @@ jobs:
           const fs = require('fs');
 
           (async () => {
+            let browser = null;
             try {
+              // 检查环境变量
+              if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+                throw new Error('SMTP 邮箱配置未设置');
+              }
+              if (!process.env.LOGIN_USER || !process.env.LOGIN_PASS) {
+                throw new Error('登录账号密码未设置');
+              }
+
               console.log('Launching browser...');
-              const browser = await puppeteer.launch({
+              browser = await puppeteer.launch({
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                args: [
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-dev-shm-usage',
+                  '--start-maximized'
+                ],
+                defaultViewport: null
               });
 
               const page = await browser.newPage();
-              await page.setViewport({ width: 1280, height: 900 });
-              // 可选：设置 User-Agent，降低被识别风险
-              await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117 Safari/537.36');
+              await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36');
 
-              console.log('Goto page...');
-              await page.goto('https://kqapp.centaline.com.cn/onecard/m/home', { waitUntil: 'networkidle2', timeout: 60000 });
+              console.log('Goto page:', process.env.TARGET_URL);
+              await page.goto(process.env.TARGET_URL, { 
+                waitUntil: ['networkidle2', 'domcontentloaded'],
+                timeout: 60000 
+              });
 
-              // 等待并填充账号密码（请确认选择器是否正确）
-              console.log('Waiting for username field...');
-              await page.waitForSelector('#username', { timeout: 10000 });
-              await page.type('#username', process.env.LOGIN_USER || '', { delay: 50 });
+              // 等待页面加载完成
+              await page.waitForTimeout(2000);
 
-              console.log('Waiting for password field...');
-              await page.waitForSelector('#password', { timeout: 10000 });
-              await page.type('#password', process.env.LOGIN_PASS || '', { delay: 50 });
+              // 尝试查找登录表单元素 - 首先检查是否有iframe
+              console.log('Checking if login form is in iframe...');
+              const iframes = await page.$$('iframe');
+              let loginFrame = null;
+              
+              for (let i = 0; i < iframes.length; i++) {
+                try {
+                  const frameContent = await iframes[i].contentFrame();
+                  if (frameContent) {
+                    const hasUsername = await frameContent.$('#username').catch(() => null);
+                    const hasPassword = await frameContent.$('#password').catch(() => null);
+                    if (hasUsername || hasPassword) {
+                      loginFrame = frameContent;
+                      console.log('Found login form in iframe');
+                      break;
+                    }
+                  }
+                } catch (err) {
+                  // 忽略iframe访问错误
+                  console.log('Error accessing iframe:', err.message);
+                }
+              }
 
-              console.log('Click login...');
-              await Promise.all([
-                page.click('#login-button'),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => { console.log('Navigation did not happen - maybe SPA'); })
-              ]);
+              // 确定操作的上下文（主页面或iframe）
+              const context = loginFrame || page;
 
-              // 可在此处等待登录后某个已登录元素出现：
-              // await page.waitForSelector('.some-logged-in-element', { timeout: 10000 });
+              // 尝试不同的用户名选择器
+              console.log('Finding username field...');
+              const usernameSelectors = ['#username', '[name="username"]', '[placeholder*="账号"]', '[placeholder*="用户名"]', '.el-input__inner[placeholder*="账号"]', '#el-id-1154-2', '[id*="el-id-"]'];
+              let usernameField = null;
+              
+              for (const selector of usernameSelectors) {
+                try {
+                  usernameField = await context.waitForSelector(selector, { timeout: 5000 });
+                  if (usernameField) {
+                    console.log('Found username field with selector:', selector);
+                    break;
+                  }
+                } catch (err) {
+                  console.log('Selector not found:', selector);
+                }
+              }
 
-              const shotPath = 'login.png';
+              if (!usernameField) {
+                throw new Error('未找到用户名输入框');
+              }
+
+              // 尝试不同的密码选择器
+              console.log('Finding password field...');
+              const passwordSelectors = ['#password', '[name="password"]', '[placeholder*="密码"]', '.el-input__inner[placeholder*="密码"]', '#el-id-1154-3', '[id*="el-id-"]'];
+              let passwordField = null;
+              
+              for (const selector of passwordSelectors) {
+                try {
+                  passwordField = await context.waitForSelector(selector, { timeout: 5000 });
+                  if (passwordField) {
+                    console.log('Found password field with selector:', selector);
+                    break;
+                  }
+                } catch (err) {
+                  console.log('Selector not found:', selector);
+                }
+              }
+
+              if (!passwordField) {
+                throw new Error('未找到密码输入框');
+              }
+
+              // 填充登录信息
+              console.log('Filling login credentials...');
+              await usernameField.focus();
+              await usernameField.type(process.env.LOGIN_USER, { delay: 80 });
+              await passwordField.focus();
+              await passwordField.type(process.env.LOGIN_PASS, { delay: 80 });
+
+              // 尝试不同的登录按钮选择器
+              console.log('Finding login button...');
+              const loginButtonSelectors = ['#login-button', '#submit', '[type="submit"]', '[name="submit"]', '.login-btn', '.submit-btn', '.el-button--primary', '.h40', '.el-button.el-button--primary.el-button--small.h40'];
+              let loginButton = null;
+              
+              for (const selector of loginButtonSelectors) {
+                try {
+                  loginButton = await context.waitForSelector(selector, { timeout: 5000 });
+                  if (loginButton) {
+                    console.log('Found login button with selector:', selector);
+                    break;
+                  }
+                } catch (err) {
+                  console.log('Selector not found:', selector);
+                }
+              }
+
+              if (!loginButton) {
+                // 尝试点击所有按钮，看是否有登录功能
+                console.log('Trying to find login button by text...');
+                const buttons = await context.$$('button');
+                for (let i = 0; i < buttons.length; i++) {
+                  const buttonText = await buttons[i].evaluate(el => el.textContent || el.innerText || '');
+                  const buttonClasses = await buttons[i].evaluate(el => el.className || '');
+                  if (buttonText.includes('登录') || buttonText.includes('Login')) {
+                    loginButton = buttons[i];
+                    console.log('Found login button by text:', buttonText);
+                    console.log('Button classes:', buttonClasses);
+                    break;
+                  } else if (buttonClasses.includes('el-button--primary') || buttonClasses.includes('h40')) {
+                    // 尝试使用主要按钮类作为备选
+                    loginButton = buttons[i];
+                    console.log('Found login button by class:', buttonClasses);
+                    console.log('Button text:', buttonText);
+                    break;
+                  }
+                }
+              }
+
+              if (!loginButton) {
+                throw new Error('未找到登录按钮');
+              }
+
+              // 执行登录
+              console.log('Clicking login button...');
+              const navigationPromise = context.waitForNavigation({
+                waitUntil: ['networkidle2', 'domcontentloaded'],
+                timeout: 30000
+              }).catch(() => {
+                console.log('Navigation did not happen - maybe SPA');
+              });
+
+              await context.click(loginButton);
+              await navigationPromise;
+
+              // 等待页面加载完成
+              await page.waitForTimeout(3000);
+
+              // 检查是否登录成功（尝试查找登录后才会出现的元素）
+              console.log('Checking if login was successful...');
+              const loggedInSelectors = [
+                '.user-info', '.avatar', '.logout-btn', '[href*="logout"]',
+                '.home-page', '.dashboard', '.welcome-message'
+              ];
+              
+              let isLoggedIn = false;
+              for (const selector of loggedInSelectors) {
+                try {
+                  await page.waitForSelector(selector, { timeout: 3000 });
+                  isLoggedIn = true;
+                  console.log('Login successful! Found logged-in element:', selector);
+                  break;
+                } catch (err) {
+                  // 忽略选择器未找到的错误
+                }
+              }
+
+              if (!isLoggedIn) {
+                console.log('Warning: Could not confirm login success, but proceeding with screenshot');
+              }
+
+              // 截图
+              const shotPath = 'login_screenshot.png';
               console.log('Taking screenshot to', shotPath);
-              await page.screenshot({ path: shotPath, fullPage: true });
-
-              await browser.close();
+              await page.screenshot({ 
+                path: shotPath, 
+                fullPage: true,
+                quality: 85
+              });
 
               // 发送邮件
-              console.log('Preparing transporter...');
+              console.log('Preparing email transporter...');
               let transporter = nodemailer.createTransport({
                 host: 'smtp.qq.com',
                 port: 465,
                 secure: true,
+                pool: true,
                 auth: {
                   user: process.env.SMTP_USER,
                   pass: process.env.SMTP_PASS
+                },
+                tls: {
+                  rejectUnauthorized: false
                 }
               });
 
-              console.log('Sending mail...');
-              await transporter.sendMail({
-                from: `自动截图机器人 <${process.env.SMTP_USER}>`,
+              console.log('Sending email...');
+              const mailOptions = {
+                from: `GitHub自动化机器人 <${process.env.SMTP_USER}>`,
                 to: process.env.SMTP_USER,
-                subject: '【GitHub自动化】登录页面截图',
-                text: '本月登录截图已生成，请查收附件',
-                attachments: [{ filename: 'login.png', path: 'login.png' }]
-              });
+                subject: `【GitHub自动化】${isLoggedIn ? '登录成功' : '登录未知状态'} - 页面截图`,
+                text: `自动登录截图已生成\n\n目标网址: ${process.env.TARGET_URL}\n登录账号: ${process.env.LOGIN_USER}\n截图时间: ${new Date().toLocaleString('zh-CN')}\n登录状态: ${isLoggedIn ? '成功' : '未知'}\n\n详情请查看附件`,
+                html: `<p>自动登录截图已生成</p><p>目标网址: ${process.env.TARGET_URL}</p><p>登录账号: ${process.env.LOGIN_USER}</p><p>截图时间: ${new Date().toLocaleString('zh-CN')}</p><p>登录状态: ${isLoggedIn ? '成功' : '未知'}</p><p>详情请查看附件</p>`,
+                attachments: [
+                  {
+                    filename: `login_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
+                    path: shotPath,
+                    cid: 'screenshot@example.com'
+                  }
+                ]
+              };
 
-              console.log('Done.');
+              await transporter.sendMail(mailOptions);
+              console.log('Email sent successfully!');
+
+              console.log('Process completed successfully!');
             } catch (err) {
-              console.error('Script failed:', err);
+              console.error('Script failed with error:', err);
+              console.error('Error stack:', err.stack);
+
+              // 如果有截图，发送错误邮件
+              if (browser && process.env.SMTP_USER && process.env.SMTP_PASS) {
+                try {
+                  const errorShotPath = 'error_screenshot.png';
+                  const page = (await browser.pages())[0];
+                  if (page) {
+                    await page.screenshot({ path: errorShotPath, fullPage: true });
+                    console.log('Error screenshot saved:', errorShotPath);
+                  }
+
+                  // 发送错误邮件
+                  let transporter = nodemailer.createTransport({
+                    host: 'smtp.qq.com',
+                    port: 465,
+                    secure: true,
+                    auth: {
+                      user: process.env.SMTP_USER,
+                      pass: process.env.SMTP_PASS
+                    }
+                  });
+
+                  await transporter.sendMail({
+                    from: `GitHub自动化机器人 <${process.env.SMTP_USER}>`,
+                    to: process.env.SMTP_USER,
+                    subject: '【GitHub自动化】登录失败通知',
+                    text: `自动登录过程中发生错误\n\n目标网址: ${process.env.TARGET_URL}\n错误时间: ${new Date().toLocaleString('zh-CN')}\n错误信息: ${err.message}\n\n详情请查看附件的错误截图`,
+                    html: `<p>自动登录过程中发生错误</p><p>目标网址: ${process.env.TARGET_URL}</p><p>错误时间: ${new Date().toLocaleString('zh-CN')}</p><p>错误信息: ${err.message}</p><p>详情请查看附件的错误截图</p>`,
+                    attachments: [
+                      {
+                        filename: 'error_screenshot.png',
+                        path: errorShotPath
+                      }
+                    ]
+                  });
+                  console.log('Error email sent successfully!');
+                } catch (emailErr) {
+                  console.error('Failed to send error email:', emailErr);
+                }
+              }
+
               process.exit(1);
+            } finally {
+              if (browser) {
+                await browser.close();
+                console.log('Browser closed');
+              }
             }
           })();
           EOF
