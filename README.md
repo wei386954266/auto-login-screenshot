@@ -169,12 +169,3 @@ MIT License
 
 
 
-Run node <<'EOF'
-Launching browser...
-Goto page: https://kqapp.centaline.com.cn/onecard/m/home
-Script failed with error: TypeError: page.waitForTimeout is not a function
-    at [stdin]:38:16
-Error stack: TypeError: page.waitForTimeout is not a function
-    at [stdin]:38:16
-Error screenshot saved: error_screenshot.png
-Error email sent successfully!

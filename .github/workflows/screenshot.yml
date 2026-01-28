@@ -34,6 +34,15 @@ jobs:
           const nodemailer = require('nodemailer');
           const fs = require('fs');
 
+          // 兼容函数：处理不同版本的waitForTimeout
+          async function waitForTimeout(page, ms) {
+            if (typeof page.waitForTimeout === 'function') {
+              return await page.waitForTimeout(ms);
+            } else {
+              return await new Promise(resolve => setTimeout(resolve, ms));
+            }
+          }
+
           (async () => {
             let browser = null;
             try {
@@ -52,9 +61,9 @@ jobs:
                   '--no-sandbox',
                   '--disable-setuid-sandbox',
                   '--disable-dev-shm-usage',
-                  '--start-maximized'
+                  '--window-size=1920,1080'
                 ],
-                defaultViewport: null
+                defaultViewport: { width: 1920, height: 1080 }
               });
 
               const page = await browser.newPage();
@@ -67,7 +76,7 @@ jobs:
               });
 
               // 等待页面加载完成
-              await page.waitForTimeout(2000);
+              await waitForTimeout(page, 2000);
 
               // 尝试查找登录表单元素 - 首先检查是否有iframe
               console.log('Checking if login form is in iframe...');
@@ -200,7 +209,7 @@ jobs:
               await navigationPromise;
 
               // 等待页面加载完成
-              await page.waitForTimeout(3000);
+              await waitForTimeout(page, 3000);
 
               // 检查是否登录成功（尝试查找登录后才会出现的元素）
               console.log('Checking if login was successful...');
