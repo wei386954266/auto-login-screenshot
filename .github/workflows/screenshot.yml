@@ -246,8 +246,7 @@ jobs:
               console.log('Taking screenshot to', shotPath);
               await page.screenshot({ 
                 path: shotPath, 
-                fullPage: true,
-                quality: 85
+                fullPage: true
               });
 
               // 发送邮件
