@@ -2,7 +2,7 @@ name: Monthly Login Screenshot
 
 on:
   schedule:
-    - cron: "0 2 1 * *"   # 每月1号上午10点 (北京时间)
+    - cron: "0 1 1 * *"   # 每月1号上午9点 (北京时间)
     - cron: "0 13 1 * *"  # 每月1号下午9点 (北京时间)
   workflow_dispatch:
 
