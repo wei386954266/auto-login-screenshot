@@ -242,31 +242,66 @@ jobs:
                 console.log('Warning: Could not confirm login success, but proceeding with screenshot');
               }
 
-              // 增加等待时间确保字体和内容完全渲染
-              console.log('Waiting for fonts and content to fully render...');
-              await waitForTimeout(page, 5000); // 增加渲染等待时间
+              // 等待更长时间确保页面完全加载
+              console.log('Waiting for complete page load...');
+              await waitForTimeout(page, 8000);
               
-              // 尝试强制重绘页面
-              await page.evaluate(() => {
+              // 执行页面滚动以触发所有内容加载
+              console.log('Scrolling page to load all content...');
+              await page.evaluate(async () => {
+                // 滚动到页面底部
+                await new Promise((resolve) => {
+                  const scrollStep = 200;
+                  const scrollInterval = 100;
+                  const totalHeight = document.body.scrollHeight;
+                  let currentScroll = 0;
+                  
+                  const timer = setInterval(() => {
+                    currentScroll += scrollStep;
+                    window.scrollTo(0, currentScroll);
+                    
+                    if (currentScroll >= totalHeight) {
+                      clearInterval(timer);
+                      // 再滚动到顶部
+                      window.scrollTo(0, 0);
+                      resolve();
+                    }
+                  }, scrollInterval);
+                });
+                
+                // 等待滚动完成后的内容渲染
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              });
+              
+              // 确保字体完全加载
+              console.log('Waiting for fonts to fully load...');
+              await page.evaluate(async () => {
+                // 检查所有字体是否加载完成
+                await document.fonts.ready;
+                
+                // 强制页面重绘
                 const body = document.body;
                 const display = body.style.display;
                 body.style.display = 'none';
-                // 强制重排
-                void body.offsetHeight;
+                void body.offsetHeight; // 强制重排
                 body.style.display = display;
+                
+                // 等待重绘完成
+                await new Promise(resolve => setTimeout(resolve, 1000));
               });
               
               // 截图
               const shotPath = 'login_screenshot.png';
-              console.log('Taking screenshot to', shotPath);
-              await page.screenshot({ 
-                path: shotPath, 
+              console.log('Taking final screenshot to', shotPath);
+              await page.screenshot({
+                path: shotPath,
                 fullPage: true,
                 type: 'png',
-                captureBeyondViewport: true
+                captureBeyondViewport: true,
+                timeout: 30000 // 增加截图超时时间
               });
               
-              console.log('Screenshot taken successfully with enhanced rendering');
+              console.log('Screenshot taken successfully with full content loaded');
 
               // 发送邮件
               console.log('Preparing email transporter...');
