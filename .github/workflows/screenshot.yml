@@ -247,11 +247,13 @@ jobs:
                 console.log('Warning: Could not confirm login success, but proceeding with screenshot');
               }
 
-              // 等待页面所有资源加载完成
+              // 等待页面所有资源加载完成（使用旧版本Puppeteer兼容的方法）
               console.log('Waiting for all resources to load...');
-              await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
-              await page.waitForLoadState('networkidle2', { timeout: 30000 });
-              await page.waitForLoadState('load', { timeout: 30000 });
+              await Promise.all([
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+                page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }).catch(() => {})
+              ]);
 
               // 等待更长时间确保动态内容加载
               await waitForTimeout(page, 10000);
