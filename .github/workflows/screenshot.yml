@@ -17,6 +17,17 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install Chinese Fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fonts-wqy-zenhei \
+            fonts-wqy-microhei \
+            fonts-arphic-uming \
+            fonts-noto-cjk \
+            fontconfig
+          fc-cache -f -v
+
       - name: Init & Install
         run: |
           npm init -y
@@ -263,23 +274,41 @@ jobs:
               await page.evaluate(async () => {
                 // 滚动页面
                 window.scrollTo(0, document.body.scrollHeight);
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 3000));
                 window.scrollTo(0, 0);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 
-                // 检查并等待字体加载
+                // 强制加载系统字体
+                const forceFontStyle = document.createElement('style');
+                forceFontStyle.textContent = `
+                  * {
+                    font-family: 'WenQuanYi Zen Hei', 'WenQuanYi Micro Hei', 'Arial Unicode MS', sans-serif !important;
+                  }
+                `;
+                document.head.appendChild(forceFontStyle);
+                
+                // 等待字体加载
                 if (document.fonts && document.fonts.ready) {
+                  console.log('Waiting for fonts.ready...');
                   await document.fonts.ready;
                 }
                 
-                // 强制重绘
-                const style = document.createElement('style');
-                style.textContent = '* { animation: none !important; transition: none !important; }';
-                document.head.appendChild(style);
-                void document.body.offsetHeight;
-                document.head.removeChild(style);
+                // 强制重绘多次
+                for (let i = 0; i < 3; i++) {
+                  // 改变body样式触发重排重绘
+                  document.body.style.transform = `translateZ(0) scale(${1 + (i * 0.001)})`;
+                  void document.body.offsetHeight;
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  document.body.style.transform = '';
+                  void document.body.offsetHeight;
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
                 
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // 移除强制字体样式
+                document.head.removeChild(forceFontStyle);
+                
+                // 最后等待所有渲染完成
+                await new Promise(resolve => setTimeout(resolve, 5000));
               });
 
               // 截图
