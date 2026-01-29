@@ -55,17 +55,22 @@ jobs:
                 throw new Error('登录账号密码未设置');
               }
 
-              console.log('Launching browser...');
+              console.log('Launching browser with enhanced rendering options...');
               browser = await puppeteer.launch({
-                headless: true,
-                args: [
-                  '--no-sandbox',
-                  '--disable-setuid-sandbox',
-                  '--disable-dev-shm-usage',
-                  '--window-size=1920,1080'
-                ],
-                defaultViewport: { width: 1920, height: 1080 }
-              });
+                  headless: "new", // 使用Puppeteer推荐的新无头模式
+                  args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--window-size=1920,1080',
+                    '--force-device-scale-factor=1',
+                    '--font-render-hinting=medium',
+                    '--enable-font-antialiasing',
+                    '--enable-javascript'
+                  ],
+                  defaultViewport: { width: 1920, height: 1080 },
+                  timeout: 120000
+                });
 
               const page = await browser.newPage();
               await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36');
@@ -242,66 +247,51 @@ jobs:
                 console.log('Warning: Could not confirm login success, but proceeding with screenshot');
               }
 
-              // 等待更长时间确保页面完全加载
-              console.log('Waiting for complete page load...');
-              await waitForTimeout(page, 8000);
-              
-              // 执行页面滚动以触发所有内容加载
-              console.log('Scrolling page to load all content...');
+              // 等待页面所有资源加载完成
+              console.log('Waiting for all resources to load...');
+              await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+              await page.waitForLoadState('networkidle2', { timeout: 30000 });
+              await page.waitForLoadState('load', { timeout: 30000 });
+
+              // 等待更长时间确保动态内容加载
+              await waitForTimeout(page, 10000);
+
+              // 执行页面滚动和交互以触发所有内容渲染
+              console.log('Interacting with page to load all content...');
               await page.evaluate(async () => {
-                // 滚动到页面底部
-                await new Promise((resolve) => {
-                  const scrollStep = 200;
-                  const scrollInterval = 100;
-                  const totalHeight = document.body.scrollHeight;
-                  let currentScroll = 0;
-                  
-                  const timer = setInterval(() => {
-                    currentScroll += scrollStep;
-                    window.scrollTo(0, currentScroll);
-                    
-                    if (currentScroll >= totalHeight) {
-                      clearInterval(timer);
-                      // 再滚动到顶部
-                      window.scrollTo(0, 0);
-                      resolve();
-                    }
-                  }, scrollInterval);
-                });
-                
-                // 等待滚动完成后的内容渲染
+                // 滚动页面
+                window.scrollTo(0, document.body.scrollHeight);
                 await new Promise(resolve => setTimeout(resolve, 2000));
-              });
-              
-              // 确保字体完全加载
-              console.log('Waiting for fonts to fully load...');
-              await page.evaluate(async () => {
-                // 检查所有字体是否加载完成
-                await document.fonts.ready;
-                
-                // 强制页面重绘
-                const body = document.body;
-                const display = body.style.display;
-                body.style.display = 'none';
-                void body.offsetHeight; // 强制重排
-                body.style.display = display;
-                
-                // 等待重绘完成
+                window.scrollTo(0, 0);
                 await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 检查并等待字体加载
+                if (document.fonts && document.fonts.ready) {
+                  await document.fonts.ready;
+                }
+                
+                // 强制重绘
+                const style = document.createElement('style');
+                style.textContent = '* { animation: none !important; transition: none !important; }';
+                document.head.appendChild(style);
+                void document.body.offsetHeight;
+                document.head.removeChild(style);
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
               });
-              
+
               // 截图
               const shotPath = 'login_screenshot.png';
-              console.log('Taking final screenshot to', shotPath);
+              console.log('Taking final screenshot...');
               await page.screenshot({
                 path: shotPath,
                 fullPage: true,
                 type: 'png',
                 captureBeyondViewport: true,
-                timeout: 30000 // 增加截图超时时间
+                timeout: 60000
               });
-              
-              console.log('Screenshot taken successfully with full content loaded');
+
+              console.log('Screenshot taken successfully!');
 
               // 发送邮件
               console.log('Preparing email transporter...');
