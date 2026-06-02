@@ -2,13 +2,15 @@ name: Monthly Login Screenshot
 
 on:
   schedule:
-    - cron: "0 1 1 * *"  
-    - cron: "0 22 31 * *"   
+    # - cron: "0 1 1 * *"  
+    - cron: "0 5 1 * *"   
   workflow_dispatch:
 
 jobs:
   screenshot:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
