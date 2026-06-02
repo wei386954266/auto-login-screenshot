@@ -89,13 +89,35 @@ jobs:
               await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36');
 
               console.log('Goto page:', process.env.TARGET_URL);
-              await page.goto(process.env.TARGET_URL, { 
-                waitUntil: ['networkidle2', 'domcontentloaded'],
-                timeout: 120000 
-              });
+              
+              // 添加重试机制，最多重试3次
+              let retries = 3;
+              let lastError;
+              while (retries > 0) {
+                try {
+                  await page.goto(process.env.TARGET_URL, { 
+                    waitUntil: 'domcontentloaded',  // 使用更宽松的等待条件
+                    timeout: 180000  // 增加超时时间到180秒
+                  });
+                  console.log('Page loaded successfully');
+                  break;
+                } catch (error) {
+                  retries--;
+                  lastError = error;
+                  console.log(`Page load failed, retries remaining: ${retries}`);
+                  console.log('Error:', error.message);
+                  if (retries > 0) {
+                    await waitForTimeout(page, 5000);  // 等待5秒后重试
+                  }
+                }
+              }
+              
+              if (retries === 0) {
+                throw lastError;
+              }
 
               // 等待页面加载完成
-              await waitForTimeout(page, 200000);
+              await waitForTimeout(page, 5000);
 
               // 尝试查找登录表单元素 - 首先检查是否有iframe
               console.log('Checking if login form is in iframe...');
