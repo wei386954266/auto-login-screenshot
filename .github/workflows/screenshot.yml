@@ -91,11 +91,11 @@ jobs:
               console.log('Goto page:', process.env.TARGET_URL);
               await page.goto(process.env.TARGET_URL, { 
                 waitUntil: ['networkidle2', 'domcontentloaded'],
-                timeout: 60000 
+                timeout: 120000 
               });
 
               // 等待页面加载完成
-              await waitForTimeout(page, 2000);
+              await waitForTimeout(page, 200000);
 
               // 尝试查找登录表单元素 - 首先检查是否有iframe
               console.log('Checking if login form is in iframe...');
