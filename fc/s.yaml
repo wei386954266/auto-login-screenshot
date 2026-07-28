@@ -1,0 +1,62 @@
+# Serverless Devs 部署配置（FC 3.0）
+# 使用方法见文件末尾注释
+edition: 3.0.0
+name: auto-login-screenshot
+# access 对应 `s config add` 时配置的阿里云密钥别名
+access: default
+
+resources:
+  screenshot:
+    component: fc3
+    props:
+      region: cn-hangzhou
+      functionName: auto-login-screenshot
+      description: 每月自动登录考勤系统截图并邮件通知
+      runtime: nodejs16
+      handler: index.handler
+      # Chromium 比较吃内存，1024MB 起步；FC3 要求 cpu 与内存搭配指定（1 vCPU : 1GB）
+      cpu: 1
+      memorySize: 1024
+      diskSize: 512
+      # 脚本内有大量等待逻辑，超时给足 10 分钟
+      timeout: 600
+      code: ./code
+      # 官方公共层：内置 puppeteer + Chromium，无需打包浏览器
+      layers:
+        - acs:fc:cn-hangzhou:official:layers/Nodejs-Puppeteer17x/versions/3
+      environmentVariables:
+        TARGET_URL: https://kqapp.centaline.com.cn/onecard/m/home
+        # 敏感信息从部署机的环境变量读取，不要明文写进本文件
+        LOGIN_USER: ${env(LOGIN_USER)}
+        LOGIN_PASS: ${env(LOGIN_PASS)}
+        SMTP_USER: ${env(SMTP_USER)}
+        SMTP_PASS: ${env(SMTP_PASS)}
+        # HTTP 手动触发的鉴权 token（长随机字符串，自己生成）
+        TRIGGER_TOKEN: ${env(TRIGGER_TOKEN)}
+      triggers:
+        - triggerName: monthly-timer
+          triggerType: timer
+          triggerConfig:
+            # 通过 CRON_TZ 指定北京时间，免去 UTC 换算（6 位 cron，含秒）
+            # 每月 1 日北京时间 06:00 执行
+            cronExpression: "CRON_TZ=Asia/Shanghai 0 0 6 1 * *"
+            enable: true
+        # 手动触发入口：手机浏览器访问 URL?token=xxx 即可触发一次
+        # 鉴权由函数代码内校验 TRIGGER_TOKEN 实现，因此这里用 anonymous
+        - triggerName: manual-http
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+
+# ─────────────────────────────────────────────
+# 部署步骤：
+#   1. npm install -g @serverless-devs/s          # 安装 Serverless Devs CLI
+#   2. s config add                               # 配置阿里云 AccessKey（别名 default）
+#   3. bash fc/setup-fonts.sh                     # 下载中文字体到代码包
+#   4. cd fc/code && npm install --omit=dev       # 安装 nodemailer 依赖
+#   5. export LOGIN_USER=xxx LOGIN_PASS=xxx SMTP_USER=xxx SMTP_PASS=xxx
+#   6. cd .. && s deploy                          # 部署函数 + 定时触发器
+#   7. s invoke                                   # 手动触发一次验证效果
+# ─────────────────────────────────────────────
